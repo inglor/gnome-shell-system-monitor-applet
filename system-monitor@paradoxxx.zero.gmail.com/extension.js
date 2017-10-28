@@ -1452,28 +1452,45 @@ const Freq = new Lang.Class({
 
     elt: 'freq',
     item_name: _('Freq'),
-    color_name: ['freq'],
+    color_name: ['freqmin', 'freqavg', 'freqmax'],
     _init: function () {
         this.item_name = _('Freq');
-        this.freq = 0;
+        this.freq = [0, 0, 0];
         this.parent()
         this.tip_format('MHz');
         this.update();
     },
     refresh: function () {
-        let total_frequency = 0;
         let num_cpus = GTop.glibtop_get_sysinfo().ncpu;
+        let freq_max = 0;
+        let freq_min = 100000000;
+        let freq_avg = 0;
         for (let i = 0; i < num_cpus; i++) {
-          total_frequency += parseInt(Shell.get_file_contents_utf8_sync('/sys/devices/system/cpu/cpu' + i + '/cpufreq/scaling_cur_freq'));
+          let core_freq = parseInt(Shell.get_file_contents_utf8_sync('/sys/devices/system/cpu/cpu' + i + '/cpufreq/scaling_cur_freq'));
+          freq_avg += core_freq;
+          if (core_freq < freq_min) {
+              freq_min = core_freq;
+          }
+          if (core_freq > freq_max) {
+              freq_max = core_freq;
+          }
         }
-        this.freq = Math.round(total_frequency / num_cpus / 1000);
+        this.freq[0] = Math.round(freq_min / 1000);
+        this.freq[1] = Math.round(freq_avg / num_cpus / 1000);
+        this.freq[2] = Math.round(freq_max / 1000);
     },
     _apply: function () {
-        let value = this.freq.toString();
-        this.text_items[0].text = value + ' ';
-        this.vals[0] = value;
-        this.tip_vals[0] = value;
-        this.menu_items[0].text = value;
+        let value_min = this.freq[0].toString();
+        let value_avg = this.freq[1].toString();
+        let value_max = this.freq[2].toString();
+        this.vals[0] = this.freq[0];
+        this.vals[1] = this.freq[1] - this.freq[0];
+        this.vals[2] = this.freq[2] - this.freq[1];
+        this.text_items[0].text = value_avg + ' ';
+        this.tip_vals[0] = value_min;
+        this.tip_vals[1] = value_avg;
+        this.tip_vals[2] = value_max;
+        this.menu_items[0].text = value_avg;
     },
     create_text_items: function () {
         return [
